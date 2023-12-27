@@ -17,7 +17,11 @@ app.get('/recaptchav2', async (req, res) => {
     } catch(err) {
         res.status(500);
         console.error(err);
-        res.json({error: "Error"});
+        if (err instanceof Error) {
+            res.json({ error: err.message });
+        } else {
+            res.json({ error: "ERROR" });
+        }
     }
 });
 
