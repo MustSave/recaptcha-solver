@@ -1,4 +1,4 @@
-import { Frame, Page } from "puppeteer";
+import { Frame, Page, TimeoutError } from "puppeteer";
 import { Processor } from "../type";
 import { doSpeechRecognition } from "../../speech_recognition/google_sr";
 import { getFrame, isRecaptchaSolved, sleep } from "../puppeteer-utils";
@@ -49,7 +49,15 @@ export class SoundProcessor implements Processor {
     }
     
     private async getAudioSource(frame: Frame) {
-        await frame.waitForSelector('#audio-source');
+        try {
+            await frame.waitForSelector('#audio-source');
+        } catch (err) {
+            if (err instanceof TimeoutError) {
+                console.log("[ERROR] Google might blocked your request for a few hour. Try later.")
+                throw new Error("Google might blocked your request for a few hour. Try later.")
+            }
+            throw err
+        }
         const audioSrc = await frame.$eval('#audio-source', src => src.getAttribute('src'));
         if (!audioSrc)
             throw new Error("No src attribute found at #audio-source");
