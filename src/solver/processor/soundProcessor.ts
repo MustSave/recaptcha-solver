@@ -3,7 +3,7 @@ import { Processor } from "../type";
 import { doSpeechRecognition } from "../../speech_recognition/google_sr";
 import { getFrame, isRecaptchaSolved, sleep } from "../puppeteer-utils";
 
-const CHALLENGE_FRAME_URL = 'api2/bframe';
+export const CHALLENGE_FRAME_URL = 'api2/bframe';
 
 export class SoundProcessor implements Processor {
     async process(page: Page) {

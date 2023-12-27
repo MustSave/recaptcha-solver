@@ -1,25 +1,44 @@
-import { Browser, Page } from "puppeteer";
+import { Browser, Page, PuppeteerLaunchOptions } from "puppeteer";
 import puppeteer from "puppeteer-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth"
 import { Processor, Solver } from "./type";
 import { closeBrowser, extractRecaptchaAnswer, isRecaptchaSolved, sleep } from "./puppeteer-utils";
 import { getFrame } from "./puppeteer-utils";
-import { SoundProcessor } from "./processor/soundProcessor";
+import { CHALLENGE_FRAME_URL, SoundProcessor } from "./processor/soundProcessor";
+import { BrowserNotFoundHandler, NamespaceErrorHandler } from "./error-handler/launch-error-handler";
 
 const ANCHOR_FRAME_URL = 'api2/anchor';
-
 export class PuppeteerSolver implements Solver{
+    private launchOption:PuppeteerLaunchOptions = { headless: false };
     private puppeteerBrowser?:Browser = undefined;
     private processor:Processor;
 
     constructor() {
         this.processor = new SoundProcessor();
     }
-    
-    private async launchPuppeteer() {
+
+    private async tryLaunchPuppeteer() {
         this.puppeteerBrowser ??= await puppeteer
             .use(StealthPlugin())
-            .launch({ headless: false });
+            .launch(this.launchOption);
+    }
+    
+    private async launchPuppeteer() {
+        while (!this.puppeteerBrowser) {
+            try {
+                await this.tryLaunchPuppeteer();
+            } catch (err) {
+                if (err instanceof Error) {
+                    if (err.message.includes("Could not find Chrome")) {
+                        new BrowserNotFoundHandler().handleLaunchError(this.launchOption);
+                    } else if (err.message.includes("Failed to move to new namespace")) {
+                        new NamespaceErrorHandler().handleLaunchError(this.launchOption);
+                    } else {
+                        throw err;
+                    }
+                }
+            }
+        }
         return this.puppeteerBrowser;
     }
     
@@ -45,7 +64,7 @@ export class PuppeteerSolver implements Solver{
     private async waitUntilRecaptchaLoaded(page: Page, url: string) {
         await Promise.all([
             page.goto(url, { waitUntil: 'networkidle2' }),
-            page.waitForResponse(res => res.url().includes("recaptcha/api2/bframe"), { timeout: 20000 })
+            page.waitForResponse(res => res.url().includes(CHALLENGE_FRAME_URL), { timeout: 20000 })
         ]);
         await sleep(1000);
     }
